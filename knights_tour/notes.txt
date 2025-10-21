@@ -1,0 +1,7 @@
+vector based original: 
+4.92121                                                                                                                         
+
+array switch and constexpr: 1.8626
+-03 flag: 0.272239
+
+Warnsdorff rule: 0.000141
