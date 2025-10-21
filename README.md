@@ -1,0 +1,2 @@
+# puzzles
+Small Puzzle solutions
