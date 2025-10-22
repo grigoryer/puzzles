@@ -1,3 +1,12 @@
+/*
+Knight's Tour using Warnsdorff-guided backtracking.
+Author: Grigory Ermizin
+Description:
+   - Bitboard-based implementation
+   - Warnsdorff heuristic ordering
+ */
+
+
 #include <chrono>
 #include <cstdint>
 #include <cstring>
@@ -7,50 +16,13 @@
 #include <string>
 
 using Bitboard = uint64_t;
+using MoveList = std::array<std::pair<int,int>, 8>;
 
-constexpr inline bool getBit(Bitboard& b, int sq)
-{
-    return b & (1ULL << sq);
-}
-
-constexpr inline void setBit(Bitboard& b, int sq)
-{
-    b |= (1ULL << sq);
-}
-
-constexpr inline int lsb(Bitboard b) 
-{
-    return __builtin_ctzll(b);
-}
-
-constexpr inline void popBit(Bitboard &b, int sq)
-{
-    b &= ~(1ULL << sq);
-}
-
-constexpr inline int popLsb(Bitboard &b) 
-{
-    int sq = lsb(b);
-    b &= ~(1ULL << sq);
-    return sq;
-}
-
-constexpr inline int bitCount(Bitboard b)
-{
-    return __builtin_popcountll(b);  
-} 
-
-int cordsToSq(int row, int column)
-{
-    return (row * 8) + column;
-}
-
-
-const Bitboard FullBB = 0xFFFFFFFFFFFFFFFFULL;
-const Bitboard FileABB = 0x0101010101010101ULL;
-const Bitboard FileBBB = FileABB << 1;
-const Bitboard FileGBB = FileABB << 6;
-const Bitboard FileHBB = FileABB << 7;
+constexpr Bitboard FullBB = 0xFFFFFFFFFFFFFFFFULL;
+constexpr Bitboard FileABB = 0x0101010101010101ULL;
+constexpr Bitboard FileBBB = FileABB << 1;
+constexpr Bitboard FileGBB = FileABB << 6;
+constexpr Bitboard FileHBB = FileABB << 7;
 
 enum Squares
 {
@@ -64,28 +36,76 @@ enum Squares
     a8, b8, c8, d8, e8, f8, g8, h8, noSq
 };
 
+constexpr bool getBit(const Bitboard& b, int sq)
+{
+    return b & (1ULL << sq);
+}
+
+constexpr void setBit(Bitboard& b, int sq)
+{
+    b |= (1ULL << sq);
+}
+
+constexpr int lsb(const Bitboard& b) //least significant bit, bit in the lowest position
+{
+    return __builtin_ctzll(b);
+}
+
+constexpr void popBit(Bitboard &b, int sq)
+{
+    b &= ~(1ULL << sq);
+}
+
+constexpr int popLsb(Bitboard &b) 
+{
+    int sq = lsb(b);
+    b &= ~(1ULL << sq);
+    return sq;
+}
+
+constexpr int bitCount(const Bitboard& b)
+{
+    return __builtin_popcountll(b);  
+} 
+
+constexpr int coordsToSq(int row, int column)
+{
+    return (row * 8) + column;
+}
+
+constexpr int getRow(int sq)
+{
+    return sq / 8;
+}
+
+constexpr int getColumn(int sq)
+{
+    return sq % 8;
+}
+
+void sqToString(int sq)
+{
+    if(sq == noSq)
+    {
+        std::cout << "NA"; return;
+    }
+    char c = 'a' + sq % 8;
+    std::cout << c << sq / 8 + 1 << " ";   
+}
+
 class Backtrack
 {
-    Bitboard visitedSqs = 0ULL;
+    Bitboard visitedSqs = {0ULL};
     std::deque<int> stackSq;
 
-    bool fullTour = false;
-    int totalMoves = 0; 
-    int startingSq = noSq; 
+    bool fullTour{false};
+    int totalMoves{0}; 
+    int startingSq{noSq}; 
 
-
-    constexpr int getRow(int sq) const
-    {
-        return sq / 8;
-    }
-
-    constexpr int getColumn(int sq) const
-    {
-        return sq % 8;
-    }
   
     Bitboard genMoveBoard(int sq)
     {
+        //generate posible knight move bitboard from given square
         Bitboard bb = 1ULL << sq;
         Bitboard attacks = 0ULL;
 
@@ -100,12 +120,12 @@ class Backtrack
         attacks |= ((~(FileABB | FileBBB) & bb) >> 10);
         attacks |= ((~(FileGBB | FileHBB) & bb) >> 6);
 
-        return (attacks &= ~visitedSqs);
+        return attacks & ~visitedSqs; //exclude visited squares
     }
 
-    std::array<std::pair<int,int>,8> genList(int sq)
+    MoveList genList(int sq)
     {
-        std::array<std::pair<int,int>,8> moves;
+        MoveList moves;
         Bitboard attacks = genMoveBoard(sq);
 
         for(auto& item : moves)
@@ -114,6 +134,8 @@ class Backtrack
             item.second = 9;
         }
 
+        // generate possible knight-move bitboard from given square
+        // sort moves in ascending order of onward degree (Warnsdorff’s rule)
         int count = 0;
         while(attacks)
         {
@@ -138,7 +160,7 @@ class Backtrack
         setBit(visitedSqs, sq);
         stackSq.push_back(sq);
 
-        if((visitedSqs == FullBB) || fullTour)
+        if(visitedSqs == FullBB)
         {
             fullTour = true;
             return;
@@ -173,7 +195,7 @@ class Backtrack
 
             for(int column = 0; column <= 7; column++)
             {
-                std::cout << (getBit(bb, cordsToSq(row, column)) ? '1' : '.') << " ";
+                std::cout << (getBit(bb, coordsToSq(row, column)) ? '1' : '.') << " ";
             }
             std::cout << "\n";
         }
@@ -183,28 +205,18 @@ class Backtrack
 
 public: 
 
-    int getTotalMoves()
+    int getTotalMoves() const
     {
         return totalMoves;
     }
     
-    static void sqToString(int sq)
-    {
-        if(sq == noSq)
-        {
-            std::cout << "NA"; return;
-        }
-        char c = 'a' + sq % 8;
-        std::cout << c << sq / 8 + 1 << " ";   
-    }
-
-    void printStack()
+    void printStack() const
     {
         int i = 0;
-        while(!stackSq.empty())
-        {
-            std::cout << ++i << ": "; sqToString(stackSq.front()); std::cout << "\n";
-            stackSq.pop_front();
+        for (auto sq : stackSq) {
+            std::cout << ++i << ": ";
+            sqToString(sq);
+            std::cout << "\n";
         }
     }
 
@@ -215,7 +227,6 @@ public:
     }
 
 };
-
 
 
 int main()
@@ -241,7 +252,7 @@ int main()
         {
             col = stringSq[0] - 'a';
             row = stringSq[1] - '1';  // convert '1'-'8' to 0-7
-            numSq = cordsToSq(row, col);
+            numSq = coordsToSq(row, col);
             break;
         } 
         else 
@@ -260,7 +271,7 @@ int main()
 
     int count = bt.getTotalMoves();
     std::chrono::duration<double> elapsed_seconds = end-start;
-    std::cout << "\nTime taken: " << elapsed_seconds.count();
+    std::cout << "\nTime taken: " << elapsed_seconds.count() << " seconds";
     std::cout << "\nNodes: " << count;
     std::cout << "\nNodes per second: " << count/elapsed_seconds.count();
 
